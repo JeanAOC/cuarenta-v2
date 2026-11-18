@@ -1,3 +1,4 @@
+import { groupName } from './groups';
 import type { Match, State } from './types';
 
 export function teamNames(state: State, teamId: string | null): string[] {
@@ -21,12 +22,14 @@ export function totalRounds(teamCount: number): number {
   return teamCount < 2 ? 0 : Math.ceil(Math.log2(teamCount));
 }
 
+/** Rondas de eliminatoria. La fase de grupos (ronda 0) no cuenta. */
 export function roundCount(state: State): number {
-  return totalRounds(state.teams.length);
+  return Math.max(0, ...state.matches.map((m) => m.round));
 }
 
 /** Nombre de la ronda. Si hay pases directos, la primera es la ronda previa. */
 export function roundTitle(state: State, round: number): string {
+  if (round === 0) return 'Fase de grupos';
   if (round === 1 && state.matches.some((m) => m.round === 1 && m.bye)) return 'Ronda previa';
   const fromEnd = roundCount(state) - round;
   if (fromEnd === 0) return 'Final';
@@ -34,6 +37,11 @@ export function roundTitle(state: State, round: number): string {
   if (fromEnd === 2) return 'Cuartos de final';
   if (fromEnd === 3) return 'Octavos de final';
   return `Ronda ${round}`;
+}
+
+/** Título de un partido: el grupo si es de la fase de grupos, si no la ronda. */
+export function matchTitle(state: State, m: Match): string {
+  return m.group !== undefined ? groupName(m.group) : roundTitle(state, m.round);
 }
 
 /** Partidos con los dos equipos definidos y sin resultado. */

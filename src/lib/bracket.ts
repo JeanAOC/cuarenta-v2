@@ -1,5 +1,12 @@
 import { randomInt, randomUUID } from 'node:crypto';
 import { AppError } from './errors';
+import {
+  GROUP_MIN_TEAMS,
+  groupCount,
+  groupOf,
+  qualifiedTeams,
+  qualifierCount,
+} from './groups';
 import type { Match, State, Team } from './types';
 
 type Rand = (max: number) => number;
@@ -93,46 +100,123 @@ export function drawTournament(state: State, rand: Rand = secureRand): State {
 
   const teams: Team[] = shuffle(groups, rand).map((playerIds, i) => ({ id: `t${i + 1}`, playerIds }));
 
-  // Cuadro fijo para la siguiente potencia de 2. Sin ranking, la posición de cada equipo
-  // (y por tanto quién pasa directo) sale del sorteo.
-  const size = nextPow2(teams.length);
-  const rounds = Math.log2(size);
-  const order = seedOrder(size);
-  const matches: Match[] = [];
+  if (teams.length >= GROUP_MIN_TEAMS) {
+    // Fase de grupos (todos contra todos) y luego eliminatoria entre los clasificados.
+    const count = groupCount(teams.length);
+    const groups: string[][] = Array.from({ length: count }, () => []);
+    teams.forEach((t, i) => groups[i % count].push(t.id));
 
-  for (let round = 1; round <= rounds; round++) {
-    const count = size / 2 ** round;
-    for (let slot = 0; slot < count; slot++) {
-      matches.push({
-        id: `r${round}s${slot}`,
-        round,
-        slot,
-        a: null,
-        b: null,
-        scoreA: null,
-        scoreB: null,
-        winner: null,
-        bye: false,
+    const matches: Match[] = [];
+    groups.forEach((ids, group) => {
+      roundRobin(ids).forEach(([a, b], slot) => {
+        matches.push({ ...emptyMatch(`g${group}m${slot}`, 0, slot), a, b, group });
       });
+    });
+    matches.push(...knockoutMatches(qualifierCount(count)));
+
+    state.groups = groups;
+    state.teams = teams;
+    state.matches = matches;
+  } else {
+    // Cuadro fijo para la siguiente potencia de 2. Sin ranking, la posición de cada equipo
+    // (y por tanto quién pasa directo) sale del sorteo.
+    const size = nextPow2(teams.length);
+    const order = seedOrder(size);
+    const matches = knockoutMatches(size);
+
+    // Ronda previa: los lugares que sobran quedan vacíos y su rival pasa directo.
+    for (const m of matches.filter((x) => x.round === 1)) {
+      m.a = teams[order[2 * m.slot] - 1]?.id ?? null;
+      m.b = teams[order[2 * m.slot + 1] - 1]?.id ?? null;
+      if (!m.a || !m.b) {
+        m.bye = true;
+        m.winner = m.a ?? m.b;
+        advance(matches, m);
+      }
     }
+
+    delete state.groups;
+    state.teams = teams;
+    state.matches = matches;
   }
 
-  // Ronda previa: los lugares que sobran quedan vacíos y su rival pasa directo.
-  for (const m of matches.filter((x) => x.round === 1)) {
-    m.a = teams[order[2 * m.slot] - 1]?.id ?? null;
-    m.b = teams[order[2 * m.slot + 1] - 1]?.id ?? null;
-    if (!m.a || !m.b) {
-      m.bye = true;
-      m.winner = m.a ?? m.b;
-      advance(matches, m);
-    }
-  }
-
-  state.teams = teams;
-  state.matches = matches;
   state.status = 'en_juego';
   state.drawnAt = new Date().toISOString();
   return state;
+}
+
+function emptyMatch(id: string, round: number, slot: number): Match {
+  return { id, round, slot, a: null, b: null, scoreA: null, scoreB: null, winner: null, bye: false };
+}
+
+/** Cuadro de eliminación directa vacío para `size` equipos (potencia de 2). */
+function knockoutMatches(size: number): Match[] {
+  const matches: Match[] = [];
+  for (let round = 1; round <= Math.log2(size); round++) {
+    for (let slot = 0; slot < size / 2 ** round; slot++) {
+      matches.push(emptyMatch(`r${round}s${slot}`, round, slot));
+    }
+  }
+  return matches;
+}
+
+/** Todos contra todos, ordenado por jornadas para que nadie juegue dos veces seguidas si se puede evitar. */
+function roundRobin(ids: string[]): [string, string][] {
+  const list: (string | null)[] = [...ids];
+  if (list.length % 2 === 1) list.push(null);
+  const n = list.length;
+  const pairs: [string, string][] = [];
+  for (let r = 0; r < n - 1; r++) {
+    for (let i = 0; i < n / 2; i++) {
+      const x = list[i];
+      const y = list[n - 1 - i];
+      if (x && y) pairs.push([x, y]);
+    }
+    list.splice(1, 0, list.pop() as string | null);
+  }
+  return pairs;
+}
+
+/**
+ * Cuando termina la fase de grupos, pone a los clasificados en la primera ronda de la eliminatoria:
+ * el mejor contra el peor, y evitando que dos equipos del mismo grupo se enfrenten de entrada.
+ */
+function syncKnockout(state: State): void {
+  const seeds = qualifiedTeams(state);
+  if (!seeds) return;
+  const size = seeds.length;
+  const order = seedOrder(size);
+  const group = groupOf(state);
+  const pairs: [string, string][] = [];
+  for (let slot = 0; slot < size / 2; slot++) {
+    pairs.push([seeds[order[2 * slot] - 1], seeds[order[2 * slot + 1] - 1]]);
+  }
+  const clash = (p: [string, string]) => group.get(p[0]) === group.get(p[1]);
+  for (let i = 0; i < pairs.length; i++) {
+    if (!clash(pairs[i])) continue;
+    for (let j = 0; j < pairs.length; j++) {
+      if (j === i) continue;
+      const x: [string, string] = [pairs[i][0], pairs[j][1]];
+      const y: [string, string] = [pairs[j][0], pairs[i][1]];
+      if (!clash(x) && !clash(y)) {
+        pairs[i] = x;
+        pairs[j] = y;
+        break;
+      }
+    }
+  }
+
+  const round1 = state.matches.filter((m) => m.round === 1).sort((x, y) => x.slot - y.slot);
+  if (round1.every((m, i) => m.a === pairs[i][0] && m.b === pairs[i][1])) return;
+  if (state.matches.some((m) => m.round >= 1 && m.winner)) {
+    throw new AppError(
+      409,
+      'No se puede cambiar este resultado: cambiaría quién clasifica y la eliminatoria ya empezó.',
+    );
+  }
+  round1.forEach((m, i) => {
+    [m.a, m.b] = pairs[i];
+  });
 }
 
 function nextMatchOf(matches: Match[], m: Match): Match | undefined {
@@ -170,16 +254,24 @@ export function recordResult(
   }
 
   const winner = scoreA > scoreB ? m.a : m.b;
-  const next = nextMatchOf(state.matches, m);
-  if (m.winner && m.winner !== winner && next?.winner) {
-    throw new AppError(409, 'No se puede cambiar el ganador: el siguiente partido ya tiene resultado.');
-  }
+  if (m.group !== undefined) {
+    m.scoreA = scoreA;
+    m.scoreB = scoreB;
+    m.winner = winner;
+    // Si fue el último partido de grupos, arma la eliminatoria. Puede rechazar la corrección.
+    syncKnockout(state);
+  } else {
+    const next = nextMatchOf(state.matches, m);
+    if (m.winner && m.winner !== winner && next?.winner) {
+      throw new AppError(409, 'No se puede cambiar el ganador: el siguiente partido ya tiene resultado.');
+    }
 
-  m.scoreA = scoreA;
-  m.scoreB = scoreB;
-  m.winner = winner;
-  delete m.games; // un resultado de una sola partida reemplaza cualquier serie anterior
-  advance(state.matches, m);
+    m.scoreA = scoreA;
+    m.scoreB = scoreB;
+    m.winner = winner;
+    delete m.games; // un resultado de una sola partida reemplaza cualquier serie anterior
+    advance(state.matches, m);
+  }
 
   const total = Math.max(...state.matches.map((x) => x.round));
   const final = state.matches.find((x) => x.round === total);
@@ -241,6 +333,7 @@ export function recordSeries(state: State, matchId: unknown, rawGames: unknown):
 
 export function resetTournament(state: State, keepPlayers: boolean): State {
   const players = keepPlayers ? state.players : [];
+  delete state.groups;
   Object.assign(state, emptyState(), { players });
   return state;
 }

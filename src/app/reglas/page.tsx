@@ -15,56 +15,67 @@ export default function Reglas() {
           <h2>Formato</h2>
           <ul>
             <li>Se juega por parejas. Los equipos se sortean al azar con los jugadores anotados.</li>
-            <li>Eliminación directa: pierdes un partido y quedas fuera.</li>
             <li>
               Cada cruce es un solo partido. Gana la primera pareja que llega a 40 puntos. La única
               excepción es la final, que puede jugarse al mejor de 3 (ver más abajo).
             </li>
             <li>
-              El sorteo arma todo el cuadro desde el principio: los equipos y quién enfrenta a quién.
-              Los ganadores avanzan por el cuadro y no se vuelve a sortear.
+              Con 6 equipos o más hay una fase de grupos y después una eliminatoria. Con menos
+              equipos se juega eliminación directa desde el principio.
             </li>
             <li>
-              Si la cantidad de equipos no es 8, 16 o 32, hay una ronda previa y algunos equipos
-              pasan directo. Se explica con ejemplos justo debajo.
+              El sorteo arma todo desde el principio: los equipos y los grupos. No se vuelve a
+              sortear.
             </li>
           </ul>
         </section>
 
         <section>
-          <h2>Ronda previa y pases directos</h2>
-          <p>
-            El cuadro tiene que cerrar en 8, 16 o 32 equipos para que todos lleguen parejos a los
-            cuartos de final, la semifinal y la final. Cuando la cantidad de equipos es otra, hay una
-            ronda previa.
-          </p>
+          <h2>Fase de grupos</h2>
           <ul>
             <li>
-              En la ronda previa juegan solo los equipos necesarios para dejar el cuadro completo.
-              Todos los demás pasan directo a la ronda siguiente, sin jugar la previa.
+              Los equipos se reparten al azar en grupos de 3 o 4. Dentro de cada grupo todos juegan
+              contra todos, un partido contra cada rival. Nadie queda fuera por perder un solo
+              partido.
             </li>
             <li>
-              Ejemplo con 10 equipos (20 jugadores): 4 equipos juegan la ronda previa, en 2
-              partidos. Los otros 6 pasan directo a los cuartos de final. En los cuartos quedan 8
-              equipos: los 6 que pasaron directo y los 2 ganadores de la previa.
+              La tabla de cada grupo se ordena por partidos ganados. Si hay empate, desempata la
+              diferencia de puntos y después los puntos a favor.
             </li>
             <li>
-              Ejemplo con 12 equipos: 8 equipos juegan la ronda previa, en 4 partidos, y los otros 4
-              pasan directo.
-            </li>
-            <li>
-              Si hay exactamente 8, 16 o 32 equipos, no hay ronda previa y todos juegan desde la
-              primera ronda.
-            </li>
-            <li>
-              Quién juega la ronda previa y quién pasa directo lo decide el sorteo, al azar, antes de
-              empezar. Es igual para todos y no se cambia después.
-            </li>
-            <li>
-              Pasar directo no es un premio ni un castigo: es lo que sale del sorteo. Quien juega la
-              ronda previa juega un partido más, y quien pasa directo se lo salta.
+              Ejemplo con 9 equipos (18 jugadores): 3 grupos de 3 equipos. Cada equipo juega 2
+              partidos y en total se juegan 9.
             </li>
           </ul>
+        </section>
+
+        <section>
+          <h2>Eliminatoria</h2>
+          <ul>
+            <li>
+              Pasan a la eliminatoria el primero de cada grupo y, si faltan lugares para completar el
+              cuadro, los mejores segundos. Se comparan por partidos ganados y, si empatan, por
+              diferencia de puntos.
+            </li>
+            <li>
+              Ejemplo con 9 equipos: pasan los 3 primeros de grupo y el mejor segundo. Son 4 equipos:
+              2 semifinales y la final.
+            </li>
+            <li>
+              El mejor clasificado enfrenta al peor, el segundo al tercero. Dos equipos del mismo grupo
+              no se enfrentan en la primera ronda si se puede evitar.
+            </li>
+            <li>Desde aquí es eliminación directa: pierdes un partido y quedas fuera.</li>
+          </ul>
+        </section>
+
+        <section>
+          <h2>Pocos equipos: sin grupos</h2>
+          <p>
+            Con menos de 6 equipos se juega solo eliminación directa. Si la cantidad no es 2 o 4,
+            hay una ronda previa donde juegan los equipos necesarios y el resto pasa directo. Quién
+            pasa directo lo decide el sorteo, al azar, y no se cambia después.
+          </p>
         </section>
 
         <section>
@@ -82,7 +93,7 @@ export default function Reglas() {
               Es opcional: se juega al mejor de 3 solo si las dos parejas de la final están de acuerdo
               antes de empezar. Si no, se juega una sola partida.
             </li>
-            <li>Esto vale solo para la final. En todas las demás rondas se juega una sola partida.</li>
+            <li>Esto vale solo para la final. En todos los demás partidos se juega una sola partida.</li>
           </ul>
         </section>
 

@@ -89,7 +89,7 @@ export function Bracket({ state }: { state: State }) {
   const rounds = Array.from({ length: total }, (_, i) => i + 1);
   const readyList = readyMatches(state);
   const ready = new Set(readyList.map((m) => m.id));
-  const [active, setActive] = useState(readyList[0]?.round ?? total);
+  const [active, setActive] = useState(readyList.find((m) => m.round >= 1)?.round ?? total);
   const nodes = layout(state, total);
   const rows = 2 ** (total - 1);
 

@@ -1,3 +1,4 @@
+import { qualifiedTeams } from './groups';
 import { roundCount, roundTitle, teamLabel } from './labels';
 import type { State } from './types';
 
@@ -57,6 +58,8 @@ export function standings(state: State): Row[] {
     const [won, lost] = m.winner === m.a ? [a, b] : [b, a];
     won.wins++;
     lost.losses++;
+    // En la fase de grupos perder no elimina: eso se decide al terminar todos los partidos.
+    if (m.group !== undefined) continue;
     lost.alive = false;
     lost.outRound = m.round;
     if (m.round === total) {
@@ -65,6 +68,18 @@ export function standings(state: State): Row[] {
       lost.status = 'Subcampeón';
     } else {
       lost.status = `Eliminado en ${roundTitle(state, m.round).toLowerCase()}`;
+    }
+  }
+
+  if (state.groups) {
+    const qualified = qualifiedTeams(state);
+    for (const r of rows.values()) {
+      if (!qualified) {
+        r.status = 'Fase de grupos';
+      } else if (!qualified.includes(r.teamId)) {
+        r.alive = false;
+        r.status = 'Eliminado en fase de grupos';
+      }
     }
   }
 

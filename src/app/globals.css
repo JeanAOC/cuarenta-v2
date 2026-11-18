@@ -406,6 +406,20 @@ a {
   gap: 0.9rem;
 }
 
+.groups {
+  display: grid;
+  gap: 2rem;
+  margin-top: 1.25rem;
+}
+
+.group h3 {
+  margin-bottom: 0.6rem;
+}
+
+.group .ready-grid {
+  margin-top: 0.9rem;
+}
+
 .tree-title {
   margin-bottom: 0.75rem;
   text-align: center;

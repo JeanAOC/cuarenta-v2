@@ -26,6 +26,8 @@ export type Match = {
   games?: { a: number; b: number }[];
   /** Pase directo: en la ronda previa no tiene rival y avanza sin jugar. */
   bye: boolean;
+  /** Solo en la fase de grupos (round 0): índice del grupo, empieza en 0. */
+  group?: number;
 };
 
 export type Status = 'registro' | 'en_juego' | 'finalizado';
@@ -35,5 +37,10 @@ export type State = {
   players: Player[];
   teams: Team[];
   matches: Match[];
+  /**
+   * Fase de grupos: ids de los equipos de cada grupo. Si no existe, el torneo es de eliminación
+   * directa desde el principio. Los partidos de grupo tienen round 0; la eliminatoria, round 1 en adelante.
+   */
+  groups?: string[][];
   drawnAt: string | null;
 };

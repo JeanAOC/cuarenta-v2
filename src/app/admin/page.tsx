@@ -3,6 +3,7 @@
 import { Fragment, useState, type FormEvent } from 'react';
 import { AlertDialog } from '@/components/AlertDialog';
 import { call, messageOf, useTournament } from '@/lib/client';
+import { GROUP_MIN_TEAMS, groupCount, groupName } from '@/lib/groups';
 import { roundCount, roundTitle, teamLabel } from '@/lib/labels';
 import type { Match, State } from '@/lib/types';
 
@@ -208,7 +209,7 @@ function Registration({
         <h2 id="sorteo">Sorteo</h2>
         <p className="muted">
           {canDraw
-            ? `${count % 2 === 0 ? `Se arman ${count / 2} equipos al azar. ` : ''}Después del sorteo no se pueden agregar ni quitar jugadores.`
+            ? `${count % 2 === 0 ? `Se arman ${count / 2} equipos al azar${count / 2 >= GROUP_MIN_TEAMS ? ` en ${groupCount(count / 2)} grupos` : ''}. ` : ''}Después del sorteo no se pueden agregar ni quitar jugadores.`
             : 'Se necesitan al menos 4 jugadores para sortear.'}
         </p>
         <div>
@@ -240,7 +241,9 @@ function Registration({
 
 function Results({ state }: { state: State }) {
   const total = roundCount(state);
-  const rounds = Array.from({ length: total }, (_, i) => i + 1);
+  const rounds = Array.from({ length: total + (state.groups ? 1 : 0) }, (_, i) =>
+    state.groups ? i : i + 1,
+  );
   return (
     <section className="section" aria-labelledby="resultados">
       <h2 id="resultados">Resultados</h2>
@@ -253,7 +256,7 @@ function Results({ state }: { state: State }) {
           <h3>{roundTitle(state, r)}</h3>
           {state.matches
             .filter((m) => m.round === r && !m.bye)
-            .sort((x, y) => x.slot - y.slot)
+            .sort((x, y) => (x.group ?? 0) - (y.group ?? 0) || x.slot - y.slot)
             .map((m) => (
               <ResultForm
                 key={`${m.id}:${m.scoreA}:${m.scoreB}:${m.a}:${m.b}:${JSON.stringify(m.games ?? null)}`}
@@ -319,6 +322,7 @@ function ResultForm({ state, match, isFinal }: { state: State; match: Match; isF
 
   return (
     <form className="result" onSubmit={submit} aria-label={`${teamA} contra ${teamB}`}>
+      {match.group !== undefined && <p className="muted">{groupName(match.group)}</p>}
       {isFinal && (
         <div className="check">
           <input

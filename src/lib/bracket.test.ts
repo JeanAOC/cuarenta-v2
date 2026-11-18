@@ -11,6 +11,7 @@ import {
   removePlayer,
   resetTournament,
 } from './bracket';
+import { groupTable, qualifierCount } from './groups';
 import { readyMatches, roundCount, roundTitle } from './labels';
 import { standings } from './standings';
 import type { State } from './types';
@@ -31,8 +32,8 @@ function playAll(s: State): void {
   }
 }
 
-test('el sorteo arma equipos y cuadro válidos con cantidad par de jugadores, de 4 a 64', () => {
-  for (let n = 4; n <= 64; n += 2) {
+test('con menos de 6 equipos el sorteo arma solo un cuadro de eliminación directa', () => {
+  for (let n = 4; n <= 10; n += 2) {
     const s = drawTournament(withPlayers(n));
     const teamCount = Math.floor(n / 2);
     const size = nextPow2(teamCount);
@@ -52,30 +53,30 @@ test('el sorteo arma equipos y cuadro válidos con cantidad par de jugadores, de
   }
 });
 
-test('con 10 equipos juegan 4 en la ronda previa y 6 pasan directo', () => {
-  const s = drawTournament(withPlayers(20));
-  assert.equal(roundCount(s), 4);
+test('con 5 equipos juega 1 en la ronda previa y 3 pasan directo', () => {
+  const s = drawTournament(withPlayers(10));
+  assert.equal(s.groups, undefined);
+  assert.equal(roundCount(s), 3);
   const round1 = s.matches.filter((m) => m.round === 1);
-  assert.equal(round1.filter((m) => !m.bye).length, 2, 'dos partidos reales');
-  assert.equal(round1.filter((m) => m.bye).length, 6, 'seis pases directos');
+  assert.equal(round1.filter((m) => !m.bye).length, 1, 'un partido real');
+  assert.equal(round1.filter((m) => m.bye).length, 3, 'tres pases directos');
 
-  // Los 6 que pasan directo ya están en la ronda 2 antes de jugar la previa.
+  // Los que pasan directo ya están en la ronda 2 antes de jugar la previa.
   const round2 = s.matches.filter((m) => m.round === 2).flatMap((m) => [m.a, m.b]).filter(Boolean);
-  assert.equal(round2.length, 6);
+  assert.equal(round2.length, 3);
   assert.equal(roundTitle(s, 1), 'Ronda previa');
-  assert.equal(roundTitle(s, 2), 'Cuartos de final');
-  assert.equal(roundTitle(s, 3), 'Semifinal');
-  assert.equal(roundTitle(s, 4), 'Final');
+  assert.equal(roundTitle(s, 2), 'Semifinal');
+  assert.equal(roundTitle(s, 3), 'Final');
 
   for (const m of readyMatches(s).filter((x) => x.round === 1)) recordResult(s, m.id, 40, 10);
   const full = s.matches.filter((m) => m.round === 2).flatMap((m) => [m.a, m.b]).filter(Boolean);
-  assert.equal(full.length, 8, 'al terminar la previa quedan 8 equipos');
+  assert.equal(full.length, 4, 'al terminar la previa quedan 4 equipos');
 });
 
 test('sin pases directos no hay ronda previa', () => {
-  const s = drawTournament(withPlayers(32)); // 16 equipos
+  const s = drawTournament(withPlayers(8)); // 4 equipos
   assert.equal(s.matches.filter((m) => m.bye).length, 0);
-  assert.equal(roundTitle(s, 1), 'Octavos de final');
+  assert.equal(roundTitle(s, 1), 'Semifinal');
 });
 
 test('un torneo completo termina con campeón para cualquier tamaño', () => {
@@ -84,15 +85,143 @@ test('un torneo completo termina con campeón para cualquier tamaño', () => {
     playAll(s);
     assert.equal(s.status, 'finalizado');
     const real = s.matches.filter((m) => !m.bye);
-    assert.equal(real.length, s.teams.length - 1, 'partidos reales = equipos - 1');
+    assert.ok(real.every((m) => m.winner), 'todos los partidos reales tienen ganador');
     const final = s.matches.find((m) => m.round === roundCount(s));
     assert.ok(final?.winner, `campeón con ${n} jugadores`);
   }
 });
 
+test('con 9 equipos hay 3 grupos de 3, 9 partidos de grupo y una eliminatoria de 4', () => {
+  const s = drawTournament(withPlayers(18));
+  assert.equal(s.teams.length, 9);
+  assert.deepEqual(s.groups?.map((g) => g.length), [3, 3, 3]);
+  assert.equal(new Set(s.groups?.flat()).size, 9, 'cada equipo está en un solo grupo');
+
+  const group = s.matches.filter((m) => m.group !== undefined);
+  assert.equal(group.length, 9);
+  assert.ok(group.every((m) => m.round === 0 && m.a && m.b));
+  for (const [g, ids] of (s.groups ?? []).entries()) {
+    const games = group.filter((m) => m.group === g);
+    assert.equal(games.length, 3);
+    const seen = new Set(games.map((m) => [m.a, m.b].sort().join('|')));
+    assert.equal(seen.size, 3, 'ningún cruce se repite');
+    assert.ok(games.every((m) => ids.includes(m.a!) && ids.includes(m.b!)));
+  }
+
+  assert.equal(roundCount(s), 2);
+  assert.equal(roundTitle(s, 0), 'Fase de grupos');
+  assert.equal(roundTitle(s, 1), 'Semifinal');
+  assert.equal(roundTitle(s, 2), 'Final');
+  assert.equal(s.matches.filter((m) => m.round >= 1).length, 3);
+  assert.ok(
+    s.matches.filter((m) => m.round >= 1).every((m) => !m.a && !m.b),
+    'la eliminatoria espera a que terminen los grupos',
+  );
+});
+
+test('al terminar los grupos pasan los 3 primeros y el mejor segundo, sin cruces del mismo grupo', () => {
+  for (let i = 0; i < 20; i++) {
+    const s = drawTournament(withPlayers(18));
+    const games = s.matches.filter((m) => m.group !== undefined);
+    games.slice(0, -1).forEach((m) => recordResult(s, m.id, 40, 20));
+    assert.ok(s.matches.filter((m) => m.round === 1).every((m) => !m.a), 'aún faltan partidos');
+    recordResult(s, games[games.length - 1].id, 40, 20);
+
+    const semis = s.matches.filter((m) => m.round === 1);
+    const teams = semis.flatMap((m) => [m.a, m.b]);
+    assert.equal(new Set(teams).size, 4);
+    const where = (id: string | null) => s.groups!.findIndex((g) => g.includes(id!));
+    // Los 3 primeros de grupo están entre los 4.
+    for (const [g] of s.groups!.entries()) {
+      assert.ok(teams.includes(groupTable(s, g)[0].teamId), 'el primero de cada grupo clasifica');
+    }
+    assert.ok(semis.every((m) => where(m.a) !== where(m.b)), 'no se repiten rivales de grupo');
+  }
+});
+
+test('un torneo con grupos termina con campeón para cualquier tamaño desde 6 equipos', () => {
+  for (let n = 12; n <= 64; n += 2) {
+    const s = drawTournament(withPlayers(n));
+    const teams = n / 2;
+    assert.equal(s.groups?.length, Math.ceil(teams / 4));
+    assert.ok(s.groups!.every((g) => g.length >= 3 && g.length <= 4), `grupos de 3 o 4 con ${teams} equipos`);
+    playAll(s);
+    assert.equal(s.status, 'finalizado');
+    assert.ok(s.matches.every((m) => m.winner), 'todos los partidos tienen ganador');
+    const final = s.matches.find((m) => m.round === roundCount(s));
+    assert.ok(final?.winner);
+    assert.equal(s.matches.filter((m) => m.round === 1).length, qualifierCount(s.groups!.length) / 2);
+  }
+});
+
+test('con 2 grupos pasan los 2 primeros de cada uno', () => {
+  for (const n of [12, 14, 16]) {
+    const s = drawTournament(withPlayers(n));
+    assert.equal(s.groups?.length, 2);
+    s.matches.filter((m) => m.group !== undefined).forEach((m) => recordResult(s, m.id, 40, 20));
+    const teams = s.matches.filter((m) => m.round === 1).flatMap((m) => [m.a, m.b]);
+    const top2 = [0, 1].flatMap((g) => groupTable(s, g).slice(0, 2).map((r) => r.teamId));
+    assert.deepEqual([...teams].sort(), [...top2].sort());
+  }
+});
+
+test('grupos: se puede corregir un resultado antes de que empiece la eliminatoria', () => {
+  const s = drawTournament(withPlayers(18));
+  const games = s.matches.filter((m) => m.group !== undefined);
+  games.forEach((m) => recordResult(s, m.id, 40, 20));
+  const before = s.matches.filter((m) => m.round === 1).flatMap((m) => [m.a, m.b]);
+  // Cambia el ganador del primer partido: la eliminatoria se rearma con quien clasifica ahora.
+  recordResult(s, games[0].id, 20, 40);
+  const after = s.matches.filter((m) => m.round === 1).flatMap((m) => [m.a, m.b]);
+  assert.equal(new Set(after).size, 4);
+  assert.ok(after.every(Boolean));
+  for (const [g] of s.groups!.entries()) assert.ok(after.includes(groupTable(s, g)[0].teamId));
+  assert.ok(before.length === 4);
+});
+
+test('grupos: no se puede cambiar quién clasifica cuando la eliminatoria ya tiene resultados', () => {
+  const s = drawTournament(withPlayers(18));
+  const games = s.matches.filter((m) => m.group !== undefined);
+  games.forEach((m) => recordResult(s, m.id, 40, 20));
+  const semi = s.matches.find((m) => m.round === 1)!;
+  recordResult(s, semi.id, 40, 10);
+  // Cambiar el marcador sin cambiar el ganador sí se puede.
+  recordResult(s, games[0].id, 44, 20);
+  // Dar vuelta todos los partidos del grupo 0 cambia su primero y, con eso, la eliminatoria.
+  const flips = games.filter((m) => m.group === 0);
+  assert.throws(() => {
+    for (const m of flips) recordResult(s, m.id, m.winner === m.a ? 20 : 40, m.winner === m.a ? 40 : 20);
+  }, /ya empezó/);
+});
+
+test('posiciones con grupos: durante los grupos nadie está eliminado y al terminar se descartan los demás', () => {
+  const s = drawTournament(withPlayers(18));
+  let rows = standings(s);
+  assert.equal(rows.length, 9);
+  assert.ok(rows.every((r) => r.status === 'Fase de grupos' && r.played === 0 && r.alive));
+
+  const games = s.matches.filter((m) => m.group !== undefined);
+  recordResult(s, games[0].id, 40, 20);
+  rows = standings(s);
+  assert.ok(rows.every((r) => r.alive), 'perder un partido de grupo no elimina');
+
+  games.slice(1).forEach((m) => recordResult(s, m.id, 40, 20));
+  rows = standings(s);
+  assert.equal(rows.filter((r) => r.status === 'Eliminado en fase de grupos').length, 5);
+  assert.equal(rows.filter((r) => r.alive).length, 4);
+  assert.equal(rows.reduce((a, r) => a + r.played, 0), 18, '9 partidos jugados');
+
+  playAll(s);
+  rows = standings(s);
+  assert.equal(rows[0].status, 'Campeón');
+  assert.equal(rows[1].status, 'Subcampeón');
+  assert.ok(rows.slice(4).every((r) => r.status === 'Eliminado en fase de grupos'));
+  assert.equal(rows.reduce((a, r) => a + r.played, 0), 24, '12 partidos en total');
+});
+
 test('posiciones: antes de jugar todos siguen en juego y sin partidos', () => {
-  const rows = standings(drawTournament(withPlayers(20)));
-  assert.equal(rows.length, 10);
+  const rows = standings(drawTournament(withPlayers(8)));
+  assert.equal(rows.length, 4);
   assert.ok(rows.every((r) => r.status === 'En juego' && r.played === 0 && r.alive));
 });
 
@@ -113,13 +242,13 @@ test('posiciones: campeón, subcampeón y eliminados por ronda', () => {
 });
 
 test('posiciones: quien llegó más lejos va primero y el pase directo no cuenta como partido', () => {
-  const s = drawTournament(withPlayers(20)); // 10 equipos, 6 pasan directo
+  const s = drawTournament(withPlayers(10)); // 5 equipos, 3 pasan directo
   playAll(s);
   const rows = standings(s);
   const order = rows.map((r) => r.outRound);
   assert.ok(order.slice(2).every((v, i, a) => i === 0 || a[i - 1] >= v), 'eliminados de mayor a menor ronda');
   const total = rows.reduce((a, r) => a + r.played, 0);
-  assert.equal(total, 9 * 2, 'cada partido real suma 2 partidos jugados');
+  assert.equal(total, 4 * 2, 'cada partido real suma 2 partidos jugados');
 });
 
 test('no permite sortear con menos de 4 jugadores ni dos veces', () => {
@@ -132,6 +261,7 @@ test('valida el marcador', () => {
   const s = drawTournament(withPlayers(8));
   const m = readyMatches(s)[0];
   assert.throws(() => recordResult(s, m.id, 40, 40), /empate/);
+  assert.equal(drawTournament(withPlayers(12)).groups?.length, 2, 'también valida en la fase de grupos');
   assert.throws(() => recordResult(s, m.id, 39, 20), /al menos 40/);
   assert.throws(() => recordResult(s, m.id, -1, 40), /enteros/);
   assert.throws(() => recordResult(s, m.id, 40.5, 20), /enteros/);

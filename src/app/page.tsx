@@ -4,7 +4,8 @@ import Link from 'next/link';
 import { Bracket, MatchBox } from '@/components/Bracket';
 import { Celebration } from '@/components/Celebration';
 import { Naipe } from '@/components/Naipe';import { useFirstSight, useTournament } from '@/lib/client';
-import { champion, readyMatches, roundTitle, teamIndex, teamNames } from '@/lib/labels';
+import { Groups } from '@/components/Groups';
+import { champion, matchTitle, readyMatches, roundTitle, teamIndex, teamNames } from '@/lib/labels';
 
 export default function Home() {
   const { data, error } = useTournament();
@@ -59,7 +60,7 @@ export default function Home() {
             <ul className="faceoffs" style={{ marginTop: '1.5rem' }}>
               {ready.map((m, i) => (
                 <li key={m.id} className="faceoff">
-                  <p className="muted">{roundTitle(state, m.round)}</p>
+                  <p className="muted">{matchTitle(state, m)}</p>
                   <div className="faceoff-cards">
                     <Naipe
                       index={teamIndex(m.a!)}
@@ -101,8 +102,19 @@ export default function Home() {
         </section>
       )}
 
+      {state.groups && (
+        <section className="section" aria-labelledby="grupos">
+          <h2 id="grupos">Fase de grupos</h2>
+          <p className="muted">
+            Todos contra todos dentro de cada grupo. Pasan los primeros de cada grupo y, si hace
+            falta, los mejores segundos.
+          </p>
+          <Groups state={state} />
+        </section>
+      )}
+
       <section className="section" aria-labelledby="cuadro">
-        <h2 id="cuadro">Cuadro</h2>
+        <h2 id="cuadro">{state.groups ? 'Eliminatoria' : 'Cuadro'}</h2>
         <Bracket state={state} />
       </section>
     </div>
