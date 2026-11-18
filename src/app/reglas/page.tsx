@@ -62,6 +62,20 @@ export default function Reglas() {
               2 semifinales y la final.
             </li>
             <li>
+              Desempate entre segundos: si dos o más segundos empatan exacto por el último lugar (mismos
+              partidos ganados, misma diferencia de puntos y mismos puntos a favor), se juega un
+              partido de desempate, a 40 puntos como los demás. Si empatan 3 o más, juegan todos
+              contra todos y pasa el que más gane.
+            </li>
+            <li>
+              El partido de desempate solo decide quién pasa: no suma puntos ni partidos a las tablas.
+              Se juega antes de empezar la eliminatoria y solo si hace falta.
+            </li>
+            <li>
+              Los demás empates no tienen partido extra, por ejemplo el primer lugar de un grupo, que
+              siempre clasifica. Si hiciera falta decidir, queda el orden del sorteo de los grupos.
+            </li>
+            <li>
               El mejor clasificado enfrenta al peor, el segundo al tercero. Dos equipos del mismo grupo
               no se enfrentan en la primera ronda si se puede evitar.
             </li>
