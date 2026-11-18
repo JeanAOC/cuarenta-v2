@@ -1,4 +1,4 @@
-import assert from 'node:assert/strict';
+﻿import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AppError } from './errors';
 import {
@@ -20,6 +20,16 @@ function withPlayers(n: number): State {
   const s = emptyState();
   for (let i = 1; i <= n; i++) addPlayer(s, `Jugador ${i}`);
   return s;
+}
+
+/** Juega los partidos de desempate pendientes (siempre gana el equipo A, 40-20). */
+function playTiebreaks(s: State): void {
+  for (let guard = 0; guard < 50; guard++) {
+    const m = s.matches.find((x) => x.tb && !x.winner);
+    if (!m) return;
+    recordResult(s, m.id, 40, 20);
+  }
+  assert.fail('demasiados desempates');
 }
 
 function playAll(s: State): void {
@@ -126,6 +136,7 @@ test('al terminar los grupos pasan los 3 primeros y el mejor segundo, sin cruces
     games.slice(0, -1).forEach((m) => recordResult(s, m.id, 40, 20));
     assert.ok(s.matches.filter((m) => m.round === 1).every((m) => !m.a), 'aún faltan partidos');
     recordResult(s, games[games.length - 1].id, 40, 20);
+    playTiebreaks(s);
 
     const semis = s.matches.filter((m) => m.round === 1);
     const teams = semis.flatMap((m) => [m.a, m.b]);
@@ -159,6 +170,7 @@ test('con 2 grupos pasan los 2 primeros de cada uno', () => {
     const s = drawTournament(withPlayers(n));
     assert.equal(s.groups?.length, 2);
     s.matches.filter((m) => m.group !== undefined).forEach((m) => recordResult(s, m.id, 40, 20));
+    playTiebreaks(s);
     const teams = s.matches.filter((m) => m.round === 1).flatMap((m) => [m.a, m.b]);
     const top2 = [0, 1].flatMap((g) => groupTable(s, g).slice(0, 2).map((r) => r.teamId));
     assert.deepEqual([...teams].sort(), [...top2].sort());
@@ -169,9 +181,11 @@ test('grupos: se puede corregir un resultado antes de que empiece la eliminatori
   const s = drawTournament(withPlayers(18));
   const games = s.matches.filter((m) => m.group !== undefined);
   games.forEach((m) => recordResult(s, m.id, 40, 20));
+  playTiebreaks(s);
   const before = s.matches.filter((m) => m.round === 1).flatMap((m) => [m.a, m.b]);
   // Cambia el ganador del primer partido: la eliminatoria se rearma con quien clasifica ahora.
   recordResult(s, games[0].id, 20, 40);
+  playTiebreaks(s);
   const after = s.matches.filter((m) => m.round === 1).flatMap((m) => [m.a, m.b]);
   assert.equal(new Set(after).size, 4);
   assert.ok(after.every(Boolean));
@@ -183,6 +197,7 @@ test('grupos: no se puede cambiar quién clasifica cuando la eliminatoria ya tie
   const s = drawTournament(withPlayers(18));
   const games = s.matches.filter((m) => m.group !== undefined);
   games.forEach((m) => recordResult(s, m.id, 40, 20));
+  playTiebreaks(s);
   const semi = s.matches.find((m) => m.round === 1)!;
   recordResult(s, semi.id, 40, 10);
   // Cambiar el marcador sin cambiar el ganador sí se puede.
@@ -206,6 +221,7 @@ test('posiciones con grupos: durante los grupos nadie está eliminado y al termi
   assert.ok(rows.every((r) => r.alive), 'perder un partido de grupo no elimina');
 
   games.slice(1).forEach((m) => recordResult(s, m.id, 40, 20));
+  playTiebreaks(s);
   rows = standings(s);
   assert.equal(rows.filter((r) => r.status === 'Eliminado en fase de grupos').length, 5);
   assert.equal(rows.filter((r) => r.alive).length, 4);
@@ -410,4 +426,62 @@ test('reiniciar conserva o borra jugadores', () => {
   assert.equal(s.matches.length, 0);
   resetTournament(s, false);
   assert.equal(s.players.length, 0);
+});
+
+
+
+test('desempate: si los segundos empatan exacto se juega todos contra todos y no suma a las tablas', () => {
+  const s = drawTournament(withPlayers(18));
+  for (const m of s.matches.filter((x) => x.group !== undefined)) recordResult(s, m.id, 40, 20);
+
+  // Los 3 segundos quedan idénticos (1 victoria, diferencia 0): hay que desempatar el último cupo.
+  const tbs = s.matches.filter((m) => m.tb);
+  assert.equal(tbs.length, 3);
+  assert.ok(tbs.every((m) => m.tb === 'segundos' && m.round === 0 && m.a && m.b && !m.winner));
+  assert.equal(new Set(tbs.flatMap((m) => [m.a, m.b])).size, 3);
+  assert.ok(
+    s.matches.filter((m) => m.round === 1).every((m) => !m.a && !m.b),
+    'la eliminatoria espera al desempate',
+  );
+  assert.ok(standings(s).every((r) => r.status === 'Fase de grupos'));
+
+  // El equipo que gana sus dos desempates es el que pasa.
+  const target = tbs[0].a!;
+  for (const m of tbs) {
+    const win = m.a === target || (m.b !== target && m.a! < m.b!) ? 'a' : 'b';
+    recordResult(s, m.id, win === 'a' ? 40 : 10, win === 'a' ? 10 : 40);
+  }
+  const teams = s.matches.filter((m) => m.round === 1).flatMap((m) => [m.a, m.b]);
+  assert.equal(new Set(teams).size, 4);
+  assert.ok(teams.includes(target), 'pasa quien ganó el desempate');
+  const others = tbs.flatMap((m) => [m.a!, m.b!]).filter((id) => id !== target);
+  assert.equal(teams.filter((id) => others.includes(id!)).length, 0, 'los otros dos segundos quedan fuera');
+
+  // Las tablas no cambian: el desempate no cuenta como partido ni suma puntos.
+  for (const [g] of s.groups!.entries()) {
+    assert.ok(groupTable(s, g).every((r) => r.played === 2));
+  }
+  assert.equal(standings(s).reduce((a, r) => a + r.played, 0), 18, 'solo los 9 partidos de grupo');
+});
+
+test('desempate: sin empate exacto no se crea ningún partido extra', () => {
+  const s = drawTournament(withPlayers(18));
+  let k = 0;
+  for (const m of s.matches.filter((x) => x.group !== undefined)) recordResult(s, m.id, 40, 10 + (k++ % 7) * 3 + k);
+  assert.equal(s.matches.filter((m) => m.tb).length, 0);
+  assert.ok(s.matches.filter((m) => m.round === 1).every((m) => m.a && m.b));
+});
+
+test('desempate: el primer lugar de un grupo no se desempata con partido', () => {
+  const s = drawTournament(withPlayers(16)); // 8 equipos, 2 grupos de 4
+  const [A, B, C, D] = s.groups![0];
+  // A y B terminan con 2 victorias y el mismo marcador total: empate exacto por el primer lugar.
+  const beats = new Set([`${A}>${C}`, `${A}>${D}`, `${B}>${A}`, `${B}>${D}`, `${C}>${B}`, `${D}>${C}`]);
+  for (const m of s.matches.filter((x) => x.group !== undefined)) {
+    const aWins = m.group === 1 || beats.has(`${m.a}>${m.b}`);
+    recordResult(s, m.id, aWins ? 40 : 20, aWins ? 20 : 40);
+  }
+  assert.equal(s.matches.filter((m) => m.tb).length, 0, 'no se crea ningún desempate');
+  const teams = s.matches.filter((m) => m.round === 1).flatMap((m) => [m.a, m.b]);
+  assert.equal(new Set(teams).size, 4, 'la eliminatoria se arma sin esperar');
 });

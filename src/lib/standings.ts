@@ -42,7 +42,8 @@ export function standings(state: State): Row[] {
   }
 
   for (const m of state.matches) {
-    if (m.bye || !m.winner || !m.a || !m.b) continue;
+    // Los desempates solo deciden quién clasifica: no cuentan como partido ni suman puntos.
+    if (m.bye || m.tb || !m.winner || !m.a || !m.b) continue;
     const a = rows.get(m.a);
     const b = rows.get(m.b);
     if (!a || !b) continue;

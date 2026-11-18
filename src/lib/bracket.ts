@@ -2,6 +2,7 @@ import { randomInt, randomUUID } from 'node:crypto';
 import { AppError } from './errors';
 import {
   GROUP_MIN_TEAMS,
+  findTies,
   groupCount,
   groupOf,
   qualifiedTeams,
@@ -178,6 +179,29 @@ function roundRobin(ids: string[]): [string, string][] {
 }
 
 /**
+ * Crea los partidos de desempate que hagan falta cuando terminan los partidos de grupo y queda un empate
+ * exacto que decide quién clasifica. Son partidos normales (a 40) que no suman a las tablas.
+ */
+function syncTiebreaks(state: State): void {
+  const key = (kind: string, a: string, b: string) => `${kind}|${[a, b].sort().join('|')}`;
+  const existing = new Set(
+    state.matches.filter((m) => m.tb && m.a && m.b).map((m) => key(m.tb!, m.a!, m.b!)),
+  );
+  for (const set of findTies(state)) {
+    for (let i = 0; i < set.teams.length; i++) {
+      for (let j = i + 1; j < set.teams.length; j++) {
+        const a = set.teams[i];
+        const b = set.teams[j];
+        if (existing.has(key(set.kind, a, b))) continue;
+        const slot = state.matches.filter((m) => m.tb).length;
+        state.matches.push({ ...emptyMatch(`tb${slot}`, 0, slot), a, b, tb: set.kind });
+        existing.add(key(set.kind, a, b));
+      }
+    }
+  }
+}
+
+/**
  * Cuando termina la fase de grupos, pone a los clasificados en la primera ronda de la eliminatoria:
  * el mejor contra el peor, y evitando que dos equipos del mismo grupo se enfrenten de entrada.
  */
@@ -254,11 +278,13 @@ export function recordResult(
   }
 
   const winner = scoreA > scoreB ? m.a : m.b;
-  if (m.group !== undefined) {
+  if (m.group !== undefined || m.tb) {
     m.scoreA = scoreA;
     m.scoreB = scoreB;
     m.winner = winner;
-    // Si fue el último partido de grupos, arma la eliminatoria. Puede rechazar la corrección.
+    // Si fue el último partido de grupos, crea los desempates que hagan falta o arma la eliminatoria.
+    // Puede rechazar la corrección si la eliminatoria ya empezó.
+    syncTiebreaks(state);
     syncKnockout(state);
   } else {
     const next = nextMatchOf(state.matches, m);

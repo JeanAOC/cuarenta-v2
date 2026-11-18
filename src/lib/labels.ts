@@ -41,6 +41,7 @@ export function roundTitle(state: State, round: number): string {
 
 /** Título de un partido: el grupo si es de la fase de grupos, si no la ronda. */
 export function matchTitle(state: State, m: Match): string {
+  if (m.tb) return 'Desempate entre segundos';
   return m.group !== undefined ? groupName(m.group) : roundTitle(state, m.round);
 }
 

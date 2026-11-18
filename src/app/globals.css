@@ -417,7 +417,16 @@ a {
 }
 
 .group .ready-grid {
-  margin-top: 0.9rem;
+  margin-top: 0.6rem;
+}
+
+.fixtures-title {
+  margin-top: 1rem;
+}
+
+.fixture p {
+  margin-bottom: 0.35rem;
+  font-size: 0.85rem;
 }
 
 .tree-title {
@@ -491,7 +500,29 @@ a {
   gap: 0.9rem;
 }
 
+/* Con el VS en medio, más espacio arriba y abajo para que no toque los nombres. */
+.match[data-vs='true'] .slot {
+  padding-block: 1.25rem;
+}
+
+.match-vs {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  padding: 0.15rem 0.7rem;
+  border: 2px solid var(--red);
+  border-radius: 999px;
+  background: var(--surface);
+  color: var(--red);
+  font-family: var(--display);
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1.3;
+}
+
 .match {
+  position: relative;
   overflow: hidden;
   border: 2px solid var(--ink);
   border-radius: 10px;

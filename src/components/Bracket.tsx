@@ -19,10 +19,26 @@ function Slot({ state, match, side }: { state: State; match: Match; side: 'a' | 
   );
 }
 
-export function MatchBox({ state, match, ready }: { state: State; match: Match; ready: boolean }) {
+export function MatchBox({
+  state,
+  match,
+  ready,
+  vs = false,
+}: {
+  state: State;
+  match: Match;
+  ready: boolean;
+  /** Muestra un "VS" en la línea que separa a los dos equipos. */
+  vs?: boolean;
+}) {
   return (
-    <div className="match" data-ready={ready}>
+    <div className="match" data-ready={ready} data-vs={vs}>
       <Slot state={state} match={match} side="a" />
+      {vs && (
+        <span className="match-vs" aria-hidden="true">
+          VS
+        </span>
+      )}
       <Slot state={state} match={match} side="b" />
       {match.games && (
         <p className="match-games">

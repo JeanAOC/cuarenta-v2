@@ -4,7 +4,7 @@ import { Fragment, useState, type FormEvent } from 'react';
 import { AlertDialog } from '@/components/AlertDialog';
 import { call, messageOf, useTournament } from '@/lib/client';
 import { GROUP_MIN_TEAMS, groupCount, groupName } from '@/lib/groups';
-import { roundCount, roundTitle, teamLabel } from '@/lib/labels';
+import { matchTitle, roundCount, roundTitle, teamLabel } from '@/lib/labels';
 import type { Match, State } from '@/lib/types';
 
 export default function Admin() {
@@ -256,7 +256,7 @@ function Results({ state }: { state: State }) {
           <h3>{roundTitle(state, r)}</h3>
           {state.matches
             .filter((m) => m.round === r && !m.bye)
-            .sort((x, y) => (x.group ?? 0) - (y.group ?? 0) || x.slot - y.slot)
+            .sort((x, y) => (x.group ?? 99) - (y.group ?? 99) || x.slot - y.slot)
             .map((m) => (
               <ResultForm
                 key={`${m.id}:${m.scoreA}:${m.scoreB}:${m.a}:${m.b}:${JSON.stringify(m.games ?? null)}`}
@@ -323,6 +323,7 @@ function ResultForm({ state, match, isFinal }: { state: State; match: Match; isF
   return (
     <form className="result" onSubmit={submit} aria-label={`${teamA} contra ${teamB}`}>
       {match.group !== undefined && <p className="muted">{groupName(match.group)}</p>}
+      {match.tb && <p className="muted">{matchTitle(state, match)} (no suma a las tablas)</p>}
       {isFinal && (
         <div className="check">
           <input

@@ -28,6 +28,11 @@ export type Match = {
   bye: boolean;
   /** Solo en la fase de grupos (round 0): índice del grupo, empieza en 0. */
   group?: number;
+  /**
+   * Partido de desempate (round 0, sin `group`): se juega solo si hay un empate exacto en el último cupo
+   * entre los segundos de cada grupo. No suma a las tablas ni a las posiciones: solo decide quién pasa.
+   */
+  tb?: 'segundos';
 };
 
 export type Status = 'registro' | 'en_juego' | 'finalizado';

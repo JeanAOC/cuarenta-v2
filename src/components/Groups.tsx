@@ -1,6 +1,6 @@
 import { MatchBox } from '@/components/Bracket';
-import { groupMatches, groupName, groupTable, qualifiedTeams } from '@/lib/groups';
-import { readyMatches, teamLabel } from '@/lib/labels';
+import { groupMatches, groupName, groupTable, qualifiedTeams, tiebreakMatches } from '@/lib/groups';
+import { matchTitle, readyMatches, teamLabel } from '@/lib/labels';
 import type { State } from '@/lib/types';
 
 function signed(n: number): string {
@@ -9,8 +9,8 @@ function signed(n: number): string {
   return '0';
 }
 
-/** Fase de grupos: tabla y partidos de cada grupo. */
-export function Groups({ state }: { state: State }) {
+/** Fase de grupos: la tabla o los partidos de cada grupo, según `view`. */
+export function Groups({ state, view }: { state: State; view: 'tablas' | 'partidos' }) {
   const groups = state.groups ?? [];
   const qualified = qualifiedTeams(state);
   const ready = new Set(readyMatches(state).map((m) => m.id));
@@ -20,6 +20,7 @@ export function Groups({ state }: { state: State }) {
       {groups.map((_, g) => (
         <section key={g} className="group" aria-label={groupName(g)}>
           <h3>{groupName(g)}</h3>
+          {view === 'tablas' && (
           <div className="table-wrap">
             <table className="standings">
               <caption className="sr-only">{groupName(g)}</caption>
@@ -54,13 +55,34 @@ export function Groups({ state }: { state: State }) {
               </tbody>
             </table>
           </div>
+          )}
+          {view === 'partidos' && (
+            <div className="ready-grid">
+              {groupMatches(state, g).map((m, i) => (
+                <div key={m.id} className="fixture">
+                  <p className="muted">Partido {i + 1}</p>
+                  <MatchBox state={state} match={m} ready={ready.has(m.id)} vs />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      ))}
+      {view === 'partidos' && tiebreakMatches(state).length > 0 && (
+        <section className="group" aria-label="Desempate">
+          <h3>Desempate</h3>
           <div className="ready-grid">
-            {groupMatches(state, g).map((m) => (
-              <MatchBox key={m.id} state={state} match={m} ready={ready.has(m.id)} />
+            {tiebreakMatches(state).map((m, i) => (
+              <div key={m.id} className="fixture">
+                <p className="muted">
+                  {matchTitle(state, m)} · Partido {i + 1}
+                </p>
+                <MatchBox state={state} match={m} ready={ready.has(m.id)} vs />
+              </div>
             ))}
           </div>
         </section>
-      ))}
+      )}
     </div>
   );
 }
