@@ -56,6 +56,8 @@ function layout(state: State, total: number): Node[] {
   };
   const nodes: Node[] = [];
   for (const m of state.matches) {
+    // Los partidos de la fase de grupos (ronda 0) se muestran en su propia sección, no en el cuadro.
+    if (m.round < 1) continue;
     if (m.round === 1) {
       if (m.bye) continue;
       const siblingDrawn = isReal(m.slot ^ 1);
