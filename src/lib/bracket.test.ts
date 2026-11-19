@@ -10,7 +10,9 @@ import {
   recordSeries,
   removePlayer,
   resetTournament,
+  setSchedule,
 } from './bracket';
+import { dayLabel, isValidDate } from './dates';
 import { groupTable, qualifierCount } from './groups';
 import { readyMatches, roundCount, roundTitle } from './labels';
 import { standings } from './standings';
@@ -265,6 +267,47 @@ test('posiciones: quien llegó más lejos va primero y el pase directo no cuenta
   assert.ok(order.slice(2).every((v, i, a) => i === 0 || a[i - 1] >= v), 'eliminados de mayor a menor ronda');
   const total = rows.reduce((a, r) => a + r.played, 0);
   assert.equal(total, 4 * 2, 'cada partido real suma 2 partidos jugados');
+});
+
+test('fechas: nombre del día y validación', () => {
+  assert.equal(dayLabel('2026-11-23'), 'lunes 23');
+  assert.equal(dayLabel('2026-11-24'), 'martes 24');
+  assert.equal(dayLabel('2026-11-25'), 'miércoles 25');
+  assert.equal(dayLabel('2026-11-27'), 'viernes 27');
+  assert.equal(dayLabel('2026-11-29'), 'domingo 29');
+  assert.ok(isValidDate('2026-11-23'));
+  for (const bad of ['2026-02-30', '2026-13-01', '2026-1-1', '23/11/2026', '', 'hoy', null, 20261123]) {
+    assert.ok(!isValidDate(bad), `no debe aceptar ${String(bad)}`);
+  }
+});
+
+test('fechas: se asignan, se borran y no se aplica nada si una es inválida', () => {
+  const s = withPlayers(8);
+  assert.throws(() => setSchedule(s, { r1s0: '2026-11-23' }), /Todavía no se hizo el sorteo/);
+
+  drawTournament(s);
+  const [a, b] = s.matches.filter((m) => !m.bye);
+  setSchedule(s, { [a.id]: '2026-11-23', [b.id]: '2026-11-24' });
+  assert.equal(a.date, '2026-11-23');
+  assert.equal(b.date, '2026-11-24');
+
+  setSchedule(s, { [a.id]: null, [b.id]: '' });
+  assert.equal(a.date, undefined);
+  assert.equal(b.date, undefined);
+
+  setSchedule(s, { [a.id]: '2026-11-25' });
+  assert.throws(() => setSchedule(s, { [a.id]: '2026-11-26', [b.id]: 'mañana' }), /fecha inválida/);
+  assert.equal(a.date, '2026-11-25', 'una fecha inválida no deja cambios a medias');
+  assert.throws(() => setSchedule(s, { nope: '2026-11-26' }), /no existe/);
+  assert.throws(() => setSchedule(s, [a.id]), /Formato/);
+  assert.throws(() => setSchedule(s, null), /Formato/);
+});
+
+test('fechas: un pase directo no se juega, no admite fecha', () => {
+  const s = drawTournament(withPlayers(10)); // 5 equipos: hay pases directos
+  const bye = s.matches.find((m) => m.bye);
+  assert.ok(bye);
+  assert.throws(() => setSchedule(s, { [bye.id]: '2026-11-23' }), /pase directo/);
 });
 
 test('no permite sortear con menos de 4 jugadores ni dos veces', () => {

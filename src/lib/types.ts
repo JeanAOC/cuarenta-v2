@@ -26,6 +26,8 @@ export type Match = {
   games?: { a: number; b: number }[];
   /** Pase directo: en la ronda previa no tiene rival y avanza sin jugar. */
   bye: boolean;
+  /** Día en que se juega, AAAA-MM-DD. Lo asigna el organizador. */
+  date?: string;
   /** Solo en la fase de grupos (round 0): índice del grupo, empieza en 0. */
   group?: number;
   /**

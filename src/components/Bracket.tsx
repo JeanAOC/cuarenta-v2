@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type CSSProperties } from 'react';
+import { dayLabel } from '@/lib/dates';
 import { readyMatches, roundCount, roundTitle, teamLabel } from '@/lib/labels';
 import type { Match, State } from '@/lib/types';
 
@@ -33,13 +34,18 @@ export function MatchBox({
 }) {
   return (
     <div className="match" data-ready={ready} data-vs={vs}>
-      <Slot state={state} match={match} side="a" />
-      {vs && (
-        <span className="match-vs" aria-hidden="true">
-          VS
-        </span>
-      )}
-      <Slot state={state} match={match} side="b" />
+      {/* El VS se centra respecto a los dos equipos, no al recuadro: las líneas extra quedan fuera. */}
+      <div className="match-teams">
+        <Slot state={state} match={match} side="a" />
+        {vs && (
+          <span className="match-vs" aria-hidden="true">
+            VS
+          </span>
+        )}
+        <Slot state={state} match={match} side="b" />
+      </div>
+      {/* En los cruces con VS la fecha ya va en el título de arriba. */}
+      {match.date && !vs && <p className="match-date">{dayLabel(match.date)}</p>}
       {match.games && (
         <p className="match-games">
           Mejor de 3, partidas: {match.games.map((g) => `${g.a}–${g.b}`).join(', ')}

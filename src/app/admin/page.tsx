@@ -80,6 +80,10 @@ function Login({ onDone }: { onDone: () => Promise<void> }) {
 
 function Panel({ state, onChange }: { state: State; onChange: () => Promise<void> }) {
   const [problem, setProblem] = useState<string | null>(null);
+  // Si todavía no hay fechas, se empieza por ahí; si ya las hay, por los resultados.
+  const [tab, setTab] = useState<'fechas' | 'resultados'>(() =>
+    state.matches.some((m) => m.date) ? 'resultados' : 'fechas',
+  );
 
   async function run(action: () => Promise<void>) {
     setProblem(null);
@@ -102,7 +106,32 @@ function Panel({ state, onChange }: { state: State; onChange: () => Promise<void
       {state.status === 'registro' ? (
         <Registration state={state} run={run} />
       ) : (
-        <Results state={state} />
+        <>
+          <div className="bracket-tabs" role="group" aria-label="Elegir sección">
+            <button type="button" className="tab" aria-pressed={tab === 'fechas'} onClick={() => setTab('fechas')}>
+              Fechas
+            </button>
+            <button
+              type="button"
+              className="tab"
+              aria-pressed={tab === 'resultados'}
+              onClick={() => setTab('resultados')}
+            >
+              Resultados
+            </button>
+          </div>
+          {/* Las dos secciones siguen montadas: así no se pierde lo que estés editando al cambiar de pestaña. */}
+          <div hidden={tab !== 'fechas'}>
+            <Schedule
+              key={state.matches.map((m) => m.date ?? '').join('|')}
+              state={state}
+              run={run}
+            />
+          </div>
+          <div hidden={tab !== 'resultados'}>
+            <Results state={state} />
+          </div>
+        </>
       )}
 
       <section className="section" aria-labelledby="reiniciar">
@@ -267,6 +296,75 @@ function Results({ state }: { state: State }) {
             ))}
         </div>
       ))}
+    </section>
+  );
+}
+
+function Schedule({
+  state,
+  run,
+}: {
+  state: State;
+  run: (action: () => Promise<void>) => Promise<void>;
+}) {
+  const matches = state.matches
+    .filter((m) => !m.bye)
+    .sort((x, y) => x.round - y.round || (x.group ?? 99) - (y.group ?? 99) || x.slot - y.slot);
+  const [dates, setDates] = useState<Record<string, string>>(() =>
+    Object.fromEntries(matches.map((m) => [m.id, m.date ?? ''])),
+  );
+  const [saved, setSaved] = useState(false);
+
+  return (
+    <section className="section" aria-labelledby="fechas">
+      <h2 id="fechas">Fechas de los partidos</h2>
+      <p className="muted">
+        Elige el día de cada partido. Se muestra en "Por jugar", agrupado por día, y junto a cada partido. Para quitar una
+        fecha, borra el día.
+      </p>
+      <div className="schedule">
+        {matches.map((m) => (
+          <div key={m.id} className="schedule-row">
+            <label htmlFor={`fecha-${m.id}`}>
+              <span className="muted">{matchTitle(state, m)}</span>
+              <span>
+                {teamLabel(state, m.a)} contra {teamLabel(state, m.b)}
+              </span>
+            </label>
+            <input
+              id={`fecha-${m.id}`}
+              type="date"
+              className="input"
+              value={dates[m.id] ?? ''}
+              onChange={(e) => {
+                setSaved(false);
+                setDates((prev) => ({ ...prev, [m.id]: e.target.value }));
+              }}
+            />
+          </div>
+        ))}
+      </div>
+      <div>
+        <button
+          className="btn"
+          type="button"
+          onClick={() =>
+            void run(async () => {
+              await call('/api/admin/schedule', 'POST', {
+                dates: Object.fromEntries(matches.map((m) => [m.id, dates[m.id] || null])),
+              });
+              setSaved(true);
+            })
+          }
+        >
+          Guardar fechas
+        </button>
+      </div>
+      {saved && (
+        <p role="status" className="message">
+          Fechas guardadas.
+        </p>
+      )}
     </section>
   );
 }

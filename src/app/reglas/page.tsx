@@ -211,7 +211,8 @@ export default function Reglas() {
               pareja cuenta las que levantó. Con 20 cartas levantadas son 6 puntos, con 21 son 7,
               con 22 son 8, con 23 son 9, y así sigue. Si el total sale impar, se sube al par
               siguiente: 7 pasa a 8, 9 pasa a 10, 11 pasa a 12. Con 19 cartas o menos no hay puntos
-              de cartón.
+              de cartón. Desde los 30 puntos el cartón ya no vale: si tu pareja ya tiene 30 o más
+              al contar las cartas, no suma cartón.
             </dd>
             <dt>Dos por dar: 2</dt>
             <dd>

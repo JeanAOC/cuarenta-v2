@@ -1,4 +1,5 @@
 import { MatchBox } from '@/components/Bracket';
+import { dayLabel } from '@/lib/dates';
 import { groupMatches, groupName, groupTable, qualifiedTeams, tiebreakMatches } from '@/lib/groups';
 import { matchTitle, readyMatches, teamLabel } from '@/lib/labels';
 import type { State } from '@/lib/types';
@@ -60,7 +61,10 @@ export function Groups({ state, view }: { state: State; view: 'tablas' | 'partid
             <div className="ready-grid">
               {groupMatches(state, g).map((m, i) => (
                 <div key={m.id} className="fixture">
-                  <p className="muted">Partido {i + 1}</p>
+                  <p className="muted">
+                    Partido {i + 1}
+                    {m.date ? `, ${dayLabel(m.date)}` : ''}
+                  </p>
                   <MatchBox state={state} match={m} ready={ready.has(m.id)} vs />
                 </div>
               ))}

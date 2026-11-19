@@ -7,6 +7,7 @@ import { Celebration } from '@/components/Celebration';
 import { Naipe } from '@/components/Naipe';
 import { useFirstSight, useTournament } from '@/lib/client';
 import { Groups } from '@/components/Groups';
+import { dayLabel } from '@/lib/dates';
 import { groupStageDone } from '@/lib/groups';
 import { champion, matchTitle, readyMatches, teamIndex, teamNames } from '@/lib/labels';
 import type { Match, State } from '@/lib/types';
@@ -49,7 +50,48 @@ export default function Home() {
   return <Tournament state={state} dealing={dealing} />;
 }
 
-/** Partidos por jugar: cartas enfrentadas, o una cuadrícula compacta si son muchos. */
+/** Cruces como cartas enfrentadas. Dentro de un bloque de día no se repite la fecha en cada cruce. */
+function Faceoffs({
+  state,
+  matches,
+  dealing,
+  inDay = false,
+}: {
+  state: State;
+  matches: Match[];
+  dealing: boolean;
+  inDay?: boolean;
+}) {
+  return (
+    <ul className="faceoffs" style={inDay ? undefined : { marginTop: '1.5rem' }}>
+      {matches.map((m, i) => (
+        <li key={m.id} className="faceoff">
+          <p className="muted">
+            {matchTitle(state, m)}
+            {!inDay && m.date ? `, ${dayLabel(m.date)}` : ''}
+          </p>
+          <div className="faceoff-cards">
+            <Naipe
+              index={teamIndex(m.a!)}
+              names={teamNames(state, m.a)}
+              deal={dealing}
+              dealIndex={Math.min(i, 3) * 2}
+            />
+            <span className="faceoff-vs">contra</span>
+            <Naipe
+              index={teamIndex(m.b!)}
+              names={teamNames(state, m.b)}
+              deal={dealing}
+              dealIndex={Math.min(i, 3) * 2 + 1}
+            />
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** Partidos por jugar: cartas enfrentadas (por día si hay fechas), o una cuadrícula compacta si son muchos. */
 function ReadyList({
   state,
   ready,
@@ -70,28 +112,29 @@ function ReadyList({
       {ready.length === 0 ? (
         <p className="muted">No hay partidos por jugar en este momento.</p>
       ) : ready.length <= 4 || ready.every((m) => m.round === 0) ? (
-        <ul className="faceoffs" style={{ marginTop: '1.5rem' }}>
-          {ready.map((m, i) => (
-            <li key={m.id} className="faceoff">
-              <p className="muted">{matchTitle(state, m)}</p>
-              <div className="faceoff-cards">
-                <Naipe
-                  index={teamIndex(m.a!)}
-                  names={teamNames(state, m.a)}
-                  deal={dealing}
-                  dealIndex={Math.min(i, 3) * 2}
-                />
-                <span className="faceoff-vs">contra</span>
-                <Naipe
-                  index={teamIndex(m.b!)}
-                  names={teamNames(state, m.b)}
-                  deal={dealing}
-                  dealIndex={Math.min(i, 3) * 2 + 1}
-                />
-              </div>
-            </li>
-          ))}
-        </ul>
+        ready.some((m) => m.date) ? (
+          // Con fechas, un bloque por día: "Partidas lunes 23", "Partidas martes 24"…
+          <div className="days">
+            {[...new Set(ready.map((m) => m.date ?? ''))]
+              .sort((x, y) => (x === '' ? 1 : y === '' ? -1 : x.localeCompare(y)))
+              .map((day) => (
+                <section
+                  key={day || 'sin-fecha'}
+                  aria-label={day ? `Partidas ${dayLabel(day)}` : 'Sin fecha'}
+                >
+                  <h2>{day ? `Partidas ${dayLabel(day)}` : 'Sin fecha todavía'}</h2>
+                  <Faceoffs
+                    state={state}
+                    matches={ready.filter((m) => (m.date ?? '') === day)}
+                    dealing={dealing}
+                    inDay
+                  />
+                </section>
+              ))}
+          </div>
+        ) : (
+          <Faceoffs state={state} matches={ready} dealing={dealing} />
+        )
       ) : (
         // Con muchos partidos a la vez, una cuadrícula compacta por ronda.
         <div className="ready-groups">

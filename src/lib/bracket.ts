@@ -1,4 +1,5 @@
 import { randomInt, randomUUID } from 'node:crypto';
+import { isValidDate } from './dates';
 import { AppError } from './errors';
 import {
   GROUP_MIN_TEAMS,
@@ -354,6 +355,32 @@ export function recordSeries(state: State, matchId: unknown, rawGames: unknown):
   m.scoreB = winsB;
   m.winner = winsA > winsB ? m.a : m.b;
   state.status = 'finalizado';
+  return state;
+}
+
+/**
+ * Asigna o borra el día de varios partidos a la vez: { idDelPartido: "AAAA-MM-DD" | null }.
+ * Se valida todo antes de aplicar nada, para no dejar fechas a medias.
+ */
+export function setSchedule(state: State, rawDates: unknown): State {
+  if (state.status === 'registro') throw new AppError(409, 'Todavía no se hizo el sorteo.');
+  if (!rawDates || typeof rawDates !== 'object' || Array.isArray(rawDates)) {
+    throw new AppError(400, 'Formato de fechas inválido.');
+  }
+  const entries = Object.entries(rawDates as Record<string, unknown>);
+  for (const [id, value] of entries) {
+    const m = state.matches.find((x) => x.id === id);
+    if (!m) throw new AppError(404, 'Uno de los partidos no existe.');
+    if (m.bye) throw new AppError(409, 'Un pase directo no se juega, no necesita fecha.');
+    if (value !== null && value !== '' && !isValidDate(value)) {
+      throw new AppError(400, 'Hay una fecha inválida. Elige el día de nuevo.');
+    }
+  }
+  for (const [id, value] of entries) {
+    const m = state.matches.find((x) => x.id === id)!;
+    if (typeof value === 'string' && value !== '') m.date = value;
+    else delete m.date;
+  }
   return state;
 }
 
