@@ -2,6 +2,7 @@
 
 import { Fragment, useState, type FormEvent } from 'react';
 import { AlertDialog } from '@/components/AlertDialog';
+import { ScheduleImage } from '@/components/ScheduleImage';
 import { call, messageOf, useTournament } from '@/lib/client';
 import { GROUP_MIN_TEAMS, groupCount, groupName } from '@/lib/groups';
 import { matchTitle, roundCount, roundTitle, teamLabel } from '@/lib/labels';
@@ -127,6 +128,9 @@ function Panel({ state, onChange }: { state: State; onChange: () => Promise<void
               state={state}
               run={run}
             />
+          </div>
+          <div hidden={tab !== 'fechas'}>
+            <ScheduleImage state={state} />
           </div>
           <div hidden={tab !== 'resultados'}>
             <Results state={state} />
