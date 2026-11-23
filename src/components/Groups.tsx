@@ -35,7 +35,19 @@ export function Groups({ state, view }: { state: State; view: 'tablas' | 'partid
                   <th scope="col" className="num" title="Partidos ganados">
                     G
                   </th>
-                  <th scope="col" className="num" title="Diferencia de puntos">
+                  <th scope="col" className="num" title="Partidos perdidos">
+                    P
+                  </th>
+                  <th scope="col" className="num" title="Puntos a favor">
+                    PF
+                  </th>
+                  <th scope="col" className="num" title="Puntos en contra">
+                    PC
+                  </th>
+                  <th scope="col" className="num" title="Puntos de tabla: 3 por partido ganado">
+                    Pts
+                  </th>
+                  <th scope="col" className="num" title="Diferencia de puntos: solo desempata">
                     Dif.
                   </th>
                 </tr>
@@ -50,6 +62,12 @@ export function Groups({ state, view }: { state: State; view: 'tablas' | 'partid
                     </th>
                     <td className="num">{r.played}</td>
                     <td className="num">{r.wins}</td>
+                    <td className="num">{r.losses}</td>
+                    <td className="num">{r.pointsFor}</td>
+                    <td className="num">{r.pointsAgainst}</td>
+                    <td className="num">
+                      <strong>{r.wins * 3}</strong>
+                    </td>
                     <td className="num">{signed(r.pointsFor - r.pointsAgainst)}</td>
                   </tr>
                 ))}
